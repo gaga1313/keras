@@ -1877,8 +1877,8 @@ def blackman(x):
     """
     if any_symbolic_tensors((x,)):
         raise TypeError(
-            "Blackman operation only supports scalar inputs and non-eager tensors. "
-            + f"Received input x = {x} of type {type(x)}"
+            f"""Blackman operation only supports scalar inputs and
+            non-eager tensors. Received input x = {x} of type {type(x)}"""
         )
     return backend.numpy.blackman(x)
 
