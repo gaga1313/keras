@@ -14,6 +14,7 @@ from keras.src import ops
 from keras.src import quantizers
 from keras.src import regularizers
 from keras.src.api_export import keras_export
+from keras.src.initializers.random_initializers import VarianceScaling
 from keras.src.layers.input_spec import InputSpec
 from keras.src.layers.layer import Layer
 from keras.src.quantizers.quantization_config import QuantizationConfig
@@ -161,6 +162,43 @@ class EinsumDense(Layer):
         self.gptq_unpacked_column_size = gptq_unpacked_column_size
         self.quantization_config = quantization_config
 
+    def update_kernel_initializer(self):
+        """
+        Updates the kernel initializer with the correct input and output axes.
+
+        If the initializer is a VarianceScaling instance, it will be updated
+        with the correct input and output axes based on the einsum equation.
+        """
+        if isinstance(self.kernel_initializer, VarianceScaling):
+            parts = self.equation.split("->")
+            if len(parts) == 2:
+                left = parts[0].split(",")
+                if len(left) == 2:
+                    input_spec = left[0]
+                    kernel_spec = left[1]
+                    output_spec = parts[1]
+
+                    input_axes = [
+                        i
+                        for i, char in enumerate(kernel_spec)
+                        if char in input_spec and char not in output_spec
+                    ]
+                    output_axes = [
+                        i
+                        for i, char in enumerate(kernel_spec)
+                        if char in output_spec
+                    ]
+
+                    if input_axes and output_axes:
+                        config = self.kernel_initializer.get_config()
+                        config["input_axes"] = input_axes
+                        config["output_axes"] = output_axes
+                        self.kernel_initializer = (
+                            self.kernel_initializer.__class__.from_config(
+                                config
+                            )
+                        )
+
     def build(self, input_shape):
         shape_data = _analyze_einsum_string(
             self.equation,
@@ -171,6 +209,9 @@ class EinsumDense(Layer):
         kernel_shape, bias_shape, full_output_shape = shape_data
         self.full_output_shape = tuple(full_output_shape)
         self.input_spec = InputSpec(ndim=len(input_shape))
+
+        self.update_kernel_initializer()
+
         if self.quantization_mode is not None:
             self.quantized_build(
                 kernel_shape,

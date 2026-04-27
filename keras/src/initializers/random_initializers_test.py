@@ -6,6 +6,7 @@ from keras.src import initializers
 from keras.src import random
 from keras.src import testing
 from keras.src import utils
+from keras.src.initializers.random_initializers import compute_fans
 
 
 class RandomInitializersTest(testing.TestCase):
@@ -232,4 +233,27 @@ class RandomInitializersTest(testing.TestCase):
 
         seed = random.SeedGenerator()
         initializer = initializers.RandomNormal(seed=seed)
+        self.run_class_serialization_test(initializer)
+
+    def test_compute_fans_with_axes(self):
+        shape = (512, 8, 64)
+
+        # Test with explicit axes (e.g. Query projection)
+        fan_in, fan_out = compute_fans(
+            shape, input_axes=[0], output_axes=[1, 2]
+        )
+        self.assertEqual(fan_in, 512)
+        self.assertEqual(fan_out, 512)
+
+        # Test with another combination (e.g. Output projection)
+        fan_in, fan_out = compute_fans(
+            shape, input_axes=[0, 1], output_axes=[2]
+        )
+        self.assertEqual(fan_in, 512 * 8)
+        self.assertEqual(fan_out, 64)
+
+    def test_variance_scaling_serialization_with_axes(self):
+        initializer = initializers.VarianceScaling(
+            input_axes=[0], output_axes=[1, 2]
+        )
         self.run_class_serialization_test(initializer)
