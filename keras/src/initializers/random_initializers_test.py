@@ -7,6 +7,8 @@ from keras.src import random
 from keras.src import testing
 from keras.src import utils
 from keras.src.initializers.random_initializers import compute_fans
+from keras.src.layers.core.dense import Dense
+from keras.src.layers.core.einsum_dense import EinsumDense
 
 
 class RandomInitializersTest(testing.TestCase):
@@ -257,3 +259,49 @@ class RandomInitializersTest(testing.TestCase):
             input_axes=[0], output_axes=[1, 2]
         )
         self.run_class_serialization_test(initializer)
+
+    def test_einsum_dense_initializer_axes(self):
+        # Create EinsumDense with attention-like equation
+        layer = EinsumDense(
+            equation="abc,cde->abde",
+            output_shape=(None, 8, 64),
+            kernel_initializer="lecun_normal",
+        )
+        # Build layer with input shape (batch, seq_len, dim) -> (None, 10, 512)
+        layer.build((None, 10, 512))
+
+        # Verify that initializer was updated with correct axes
+        self.assertEqual(layer.kernel_initializer.input_axes, [0])
+        self.assertEqual(layer.kernel_initializer.output_axes, [1, 2])
+
+        # Verify fans
+        kernel_shape = layer.kernel.shape  # Should be (512, 8, 64)
+        print(kernel_shape)
+        print(layer.kernel_initializer.input_axes)
+        print(layer.kernel_initializer.output_axes)
+        fan_in, fan_out = compute_fans(
+            kernel_shape,
+            input_axes=layer.kernel_initializer.input_axes,
+            output_axes=layer.kernel_initializer.output_axes,
+        )
+        self.assertEqual(fan_in, 512)
+        self.assertEqual(fan_out, 512)
+
+    def test_dense_initializer_fans(self):
+        # Create standard Dense layer
+        layer = Dense(units=64, kernel_initializer="lecun_normal")
+        # Build layer with input shape (None, 32)
+        layer.build((None, 32))
+
+        # Verify that initializer DOES NOT have explicit axes set
+        self.assertIsNone(layer.kernel_initializer.input_axes)
+        self.assertIsNone(layer.kernel_initializer.output_axes)
+
+        # Verify fans using standard compute_fans on the weight shape
+        kernel_shape = layer.kernel.shape  # Should be (32, 64)
+        print(kernel_shape)
+        print(layer.kernel_initializer.input_axes)
+        print(layer.kernel_initializer.output_axes)
+        fan_in, fan_out = compute_fans(kernel_shape)
+        self.assertEqual(fan_in, 32)
+        self.assertEqual(fan_out, 64)
