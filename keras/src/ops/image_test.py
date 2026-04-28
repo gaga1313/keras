@@ -596,6 +596,26 @@ class ImageOpsStaticShapeTest(testing.TestCase):
         )
         self.assertEqual(out.shape, output_shape)
 
+    def test_ssim(self):
+        # Test unbatched channels_last
+        x1 = KerasTensor([32, 32, 3])
+        x2 = KerasTensor([32, 32, 3])
+        out = kimage.ssim(x1, x2, max_val=1.0)
+        self.assertEqual(out.shape, ())
+
+        # Test batched channels_last
+        x1 = KerasTensor([None, 32, 32, 3])
+        x2 = KerasTensor([None, 32, 32, 3])
+        out = kimage.ssim(x1, x2, max_val=1.0)
+        self.assertEqual(out.shape, (None,))
+
+        # Test channels_first
+        backend.set_image_data_format("channels_first")
+        x1 = KerasTensor([None, 3, 32, 32])
+        x2 = KerasTensor([None, 3, 32, 32])
+        out = kimage.ssim(x1, x2, max_val=1.0)
+        self.assertEqual(out.shape, (None,))
+
 
 AFFINE_TRANSFORM_INTERPOLATIONS = {  # map to order
     "nearest": 0,
@@ -1221,12 +1241,6 @@ class ImageOpsCorrectnessTest(testing.TestCase):
                     f"antialias={antialias}."
                 )
         elif backend.backend() == "openvino":
-            if "lanczos" in interpolation:
-                self.skipTest(
-                    "Resizing with Lanczos interpolation is "
-                    "not supported by the OpenVINO backend. "
-                    f"Received: interpolation={interpolation}."
-                )
             if interpolation == "bicubic":
                 self.skipTest(
                     "Resizing with Bicubic interpolation does not match "
@@ -3148,3 +3162,122 @@ class ExtractPatches3DTest(testing.TestCase):
             volume, size=(2, 3, 4), strides=(2, 3, 4), data_format=data_format
         )
         self.assertEqual(patches.shape, expected_shape)
+
+    def test_ssim_identical_images(self):
+        # Identical images should have SSIM close to 1.0
+        x = np.random.random((32, 32, 3)).astype("float32")
+        out = kimage.ssim(x, x, max_val=1.0)
+        self.assertAllClose(out, 1.0, atol=1e-4)
+
+        # Batched case
+        x = np.random.random((2, 32, 32, 3)).astype("float32")
+        out = kimage.ssim(x, x, max_val=1.0)
+        self.assertEqual(out.shape, (2,))
+        self.assertAllClose(out, [1.0, 1.0], atol=1e-4)
+
+    def test_ssim_different_images(self):
+        # Different random images should have lower SSIM
+        np.random.seed(42)
+        x1 = np.random.random((32, 32, 3)).astype("float32")
+        x2 = np.random.random((32, 32, 3)).astype("float32")
+        out = kimage.ssim(x1, x2, max_val=1.0)
+        # SSIM of different images should be less than 1
+        self.assertTrue(float(out) < 0.5)
+
+    def test_ssim_vs_tensorflow(self):
+        # Compare with TensorFlow's implementation
+        np.random.seed(123)
+        x1 = np.random.random((2, 32, 32, 3)).astype("float32")
+        x2 = np.random.random((2, 32, 32, 3)).astype("float32")
+
+        out = kimage.ssim(x1, x2, max_val=1.0)
+        ref_out = tf.image.ssim(x1, x2, max_val=1.0)
+
+        self.assertEqual(out.shape, ref_out.shape)
+        self.assertAllClose(out, ref_out, atol=0.01)
+
+    def test_ssim_channels_first(self):
+        backend.set_image_data_format("channels_first")
+        # Identical images should have SSIM close to 1.0
+        x = np.random.random((3, 32, 32)).astype("float32")
+        out = kimage.ssim(x, x, max_val=1.0)
+        self.assertAllClose(out, 1.0, atol=1e-4)
+
+        # Batched case
+        x = np.random.random((2, 3, 32, 32)).astype("float32")
+        out = kimage.ssim(x, x, max_val=1.0)
+        self.assertEqual(out.shape, (2,))
+        self.assertAllClose(out, [1.0, 1.0], atol=1e-4)
+
+    def test_ssim_max_val_255(self):
+        # Test with max_val=255 for uint8-like images
+        x = (np.random.random((32, 32, 3)) * 255).astype("float32")
+        out = kimage.ssim(x, x, max_val=255.0)
+        self.assertAllClose(out, 1.0, atol=1e-4)
+
+    def test_ssim_custom_parameters(self):
+        # Test with custom filter_size and k values
+        x = np.random.random((32, 32, 3)).astype("float32")
+        out = kimage.ssim(
+            x, x, max_val=1.0, filter_size=7, filter_sigma=1.0, k1=0.02, k2=0.06
+        )
+        self.assertAllClose(out, 1.0, atol=1e-4)
+
+
+class SobelEdgesTest(testing.TestCase):
+    def setUp(self):
+        if backend.backend() == "openvino":
+            self.skipTest("sobel_edges is not supported with openvino backend")
+
+    def test_sobel_edges_shape_channels_last(self):
+        image = np.random.random((2, 16, 16, 3)).astype("float32")
+        edges = kimage.sobel_edges(image)
+        self.assertEqual(edges.shape, (2, 16, 16, 3, 2))
+
+    def test_sobel_edges_shape_channels_first(self):
+        image = np.random.random((2, 3, 16, 16)).astype("float32")
+        edges = kimage.sobel_edges(image, data_format="channels_first")
+        self.assertEqual(edges.shape, (2, 3, 16, 16, 2))
+
+    def test_sobel_edges_single_channel(self):
+        image = np.random.random((1, 16, 16, 1)).astype("float32")
+        edges = kimage.sobel_edges(image)
+        self.assertEqual(edges.shape, (1, 16, 16, 1, 2))
+
+    def test_sobel_edges_detects_vertical_edge(self):
+        # Create image with vertical edge in the middle
+        image = np.zeros((1, 8, 8, 1), dtype="float32")
+        image[0, :, 4:, 0] = 1.0
+        edges = kimage.sobel_edges(image)
+
+        # Horizontal gradient (dx) should be non-zero at the edge
+        dx = backend.convert_to_numpy(edges[0, :, :, 0, 1])
+        # The edge is at column 4, so dx should have non-zero values there
+        self.assertTrue(np.any(np.abs(dx[:, 3:5]) > 0))
+
+    def test_sobel_edges_detects_horizontal_edge(self):
+        # Create image with horizontal edge in the middle
+        image = np.zeros((1, 8, 8, 1), dtype="float32")
+        image[0, 4:, :, 0] = 1.0
+        edges = kimage.sobel_edges(image)
+
+        # Vertical gradient (dy) should be non-zero at the edge
+        dy = backend.convert_to_numpy(edges[0, :, :, 0, 0])
+        # The edge is at row 4, so dy should have non-zero values there
+        self.assertTrue(np.any(np.abs(dy[3:5, :]) > 0))
+
+    def test_sobel_edges_uniform_image(self):
+        # Uniform image should have near-zero gradients (except at borders)
+        image = np.ones((1, 16, 16, 1), dtype="float32") * 0.5
+        edges = kimage.sobel_edges(image)
+
+        # Interior gradients should be zero
+        edges_np = backend.convert_to_numpy(edges)
+        interior = edges_np[0, 2:-2, 2:-2, 0, :]
+        self.assertAllClose(interior, np.zeros_like(interior), atol=1e-5)
+
+    def test_sobel_edges_multi_channel(self):
+        # Test with RGB image
+        image = np.random.random((1, 16, 16, 3)).astype("float32")
+        edges = kimage.sobel_edges(image)
+        self.assertEqual(edges.shape, (1, 16, 16, 3, 2))
