@@ -276,9 +276,6 @@ class RandomInitializersTest(testing.TestCase):
 
         # Verify fans
         kernel_shape = layer.kernel.shape  # Should be (512, 8, 64)
-        print(kernel_shape)
-        print(layer.kernel_initializer.input_axes)
-        print(layer.kernel_initializer.output_axes)
         fan_in, fan_out = compute_fans(
             kernel_shape,
             input_axes=layer.kernel_initializer.input_axes,
@@ -299,9 +296,6 @@ class RandomInitializersTest(testing.TestCase):
 
         # Verify fans using standard compute_fans on the weight shape
         kernel_shape = layer.kernel.shape  # Should be (32, 64)
-        print(kernel_shape)
-        print(layer.kernel_initializer.input_axes)
-        print(layer.kernel_initializer.output_axes)
         fan_in, fan_out = compute_fans(kernel_shape)
         self.assertEqual(fan_in, 32)
         self.assertEqual(fan_out, 64)
