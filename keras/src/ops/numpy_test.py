@@ -5112,11 +5112,7 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
     def test_bartlett(self):
         x = np.random.randint(1, 100 + 1)
         self.assertAllClose(knp.bartlett(x), np.bartlett(x))
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> upstream/master
     def test_bartlett_length_1(self):
         x = 1
         x_tensor = keras.ops.convert_to_tensor(x)
@@ -5140,11 +5136,7 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
     def test_hamming(self):
         x = np.random.randint(1, 100 + 1)
         self.assertAllClose(knp.hamming(x), np.hamming(x))
-<<<<<<< HEAD
-    
-=======
 
->>>>>>> upstream/master
     def test_hamming_length_1(self):
         x = 1
         x_tensor = keras.ops.convert_to_tensor(x)
@@ -5169,7 +5161,7 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
         x = np.random.randint(1, 100 + 1)
         beta = float(np.random.randint(10, 20 + 1))
         self.assertAllClose(knp.kaiser(x, beta), np.kaiser(x, beta))
-    
+
     def test_kaiser_length_1(self):
         x = 1
         x_tensor = keras.ops.convert_to_tensor(x)
