@@ -169,11 +169,7 @@ class EinsumDense(Layer):
         config = self.kernel_initializer.get_config()
         config["input_axes"] = input_axes
         config["output_axes"] = output_axes
-        return (
-            self.kernel_initializer.__class__.from_config(
-                config
-            )
-        )
+        return self.kernel_initializer.__class__.from_config(config)
 
     def build(self, input_shape):
         shape_data = _analyze_einsum_string(
@@ -182,16 +178,20 @@ class EinsumDense(Layer):
             input_shape,
             self.partial_output_shape,
         )
-        kernel_shape, bias_shape, full_output_shape, input_axes, output_axes = shape_data
+        kernel_shape, bias_shape, full_output_shape, input_axes, output_axes = (
+            shape_data
+        )
         self.full_output_shape = tuple(full_output_shape)
         self.input_spec = InputSpec(ndim=len(input_shape))
-        
+
         kernel_initializer = self.kernel_initializer
-        if (isinstance(self.kernel_initializer, VarianceScaling)
-            and (self.kernel_initializer.input_axes is None
-            or self.kernel_initializer.output_axes is None)
+        if isinstance(self.kernel_initializer, VarianceScaling) and (
+            self.kernel_initializer.input_axes is None
+            or self.kernel_initializer.output_axes is None
         ):
-            kernel_initializer = self._update_kernel_initializer(input_axes, output_axes)
+            kernel_initializer = self._update_kernel_initializer(
+                input_axes, output_axes
+            )
 
         if self.quantization_mode is not None:
             self.quantized_build(
@@ -1619,12 +1619,14 @@ def _analyze_einsum_string(equation, bias_axes, input_shape, output_shape):
             partial).
 
     Returns:
-        A tuple `(kernel_shape, bias_shape, full_output_shape, input_axes, output_axes)` where:
+        A tuple `(
+            kernel_shape, bias_shape, full_output_shape, input_axes, output_axes
+        )` where:
             `kernel_shape`: The calculated shape of the einsum kernel.
             `bias_shape`: The calculated shape of the bias, or `None`.
             `full_output_shape`: The fully-resolved shape of the output tensor.
-            `input_axes`: The axes of the input tensor that correspond to the kernel.
-            `output_axes`: The axes of the output tensor that correspond to the kernel.
+            `input_axes`: The axes representing input units.
+            `output_axes`: The axes representing output units.
 
     Raises:
         ValueError: If the einsum `equation` is not in a supported format.

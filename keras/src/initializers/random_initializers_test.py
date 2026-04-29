@@ -7,8 +7,6 @@ from keras.src import random
 from keras.src import testing
 from keras.src import utils
 from keras.src.initializers.random_initializers import compute_fans
-from keras.src.layers.core.dense import Dense
-from keras.src.layers.core.einsum_dense import EinsumDense
 
 
 class RandomInitializersTest(testing.TestCase):
@@ -259,11 +257,14 @@ class RandomInitializersTest(testing.TestCase):
         shape = (32, 4, 16)
         scale = 2.0
         seed = 1234
-        
-        # Test with explicit axes (e.g. Query projection)
-        # fan_in = 32, fan_out = 4 * 16 = 64
+
+        # Testing standard deviation with given axes
         initializer = initializers.VarianceScaling(
-            scale=scale, seed=seed, mode="fan_in", input_axes=[0], output_axes=[1, 2]
+            scale=scale,
+            seed=seed,
+            mode="fan_in",
+            input_axes=[0],
+            output_axes=[1, 2],
         )
         values = initializer(shape=shape)
         self.assertEqual(values.shape, shape)
@@ -272,11 +273,10 @@ class RandomInitializersTest(testing.TestCase):
             np.sqrt(scale / 32),
             atol=1e-1,
         )
-        
-        # Test with another combination (e.g. Output projection)
-        # fan_in = 32 * 4 = 128, fan_out = 16
+
+        # Test output standard deviation without axes
         initializer = initializers.VarianceScaling(
-            scale=scale, seed=seed, mode="fan_in", input_axes=[0, 1], output_axes=[2]
+            scale=scale, seed=seed, mode="fan_in"
         )
         values = initializer(shape=shape)
         self.assertAllClose(
@@ -284,6 +284,40 @@ class RandomInitializersTest(testing.TestCase):
             np.sqrt(scale / 128),
             atol=1e-1,
         )
+
+    def test_mha_query_projection_variance(self):
+        from keras.src.layers.attention.multi_head_attention import (
+            MultiHeadAttention,
+        )
+
+        utils.set_random_seed(1337)
+
+        num_heads = 8
+        key_dim = 16
+        dim = 32
+
+        mha = MultiHeadAttention(
+            num_heads=num_heads,
+            key_dim=key_dim,
+            kernel_initializer="lecun_normal",
+        )
+        # Build with a typical shape: (batch, seq, dim)
+        mha.build((None, 10, dim), (None, 10, dim))
+
+        # Access the query dense layer
+        query_dense = mha.query_dense
+        kernel = query_dense.kernel
+
+        # Kernel shape should be (dim, num_heads, key_dim) -> (32, 8, 16)
+        self.assertEqual(kernel.shape, (dim, num_heads, key_dim))
+
+        # Expected fan_in is dim (32)
+        # So expected stddev is sqrt(1 / dim)
+        expected_std = np.sqrt(1.0 / dim)
+
+        actual_std = np.std(backend.convert_to_numpy(kernel))
+
+        self.assertAllClose(actual_std, expected_std, atol=1e-1)
 
     def test_variance_scaling_serialization_with_axes(self):
         initializer = initializers.VarianceScaling(
