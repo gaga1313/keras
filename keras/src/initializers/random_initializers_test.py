@@ -254,6 +254,37 @@ class RandomInitializersTest(testing.TestCase):
         self.assertEqual(fan_in, 512 * 8)
         self.assertEqual(fan_out, 64)
 
+    def test_variance_scaling_with_axes(self):
+        utils.set_random_seed(1337)
+        shape = (32, 4, 16)
+        scale = 2.0
+        seed = 1234
+        
+        # Test with explicit axes (e.g. Query projection)
+        # fan_in = 32, fan_out = 4 * 16 = 64
+        initializer = initializers.VarianceScaling(
+            scale=scale, seed=seed, mode="fan_in", input_axes=[0], output_axes=[1, 2]
+        )
+        values = initializer(shape=shape)
+        self.assertEqual(values.shape, shape)
+        self.assertAllClose(
+            np.std(backend.convert_to_numpy(values)),
+            np.sqrt(scale / 32),
+            atol=1e-1,
+        )
+        
+        # Test with another combination (e.g. Output projection)
+        # fan_in = 32 * 4 = 128, fan_out = 16
+        initializer = initializers.VarianceScaling(
+            scale=scale, seed=seed, mode="fan_in", input_axes=[0, 1], output_axes=[2]
+        )
+        values = initializer(shape=shape)
+        self.assertAllClose(
+            np.std(backend.convert_to_numpy(values)),
+            np.sqrt(scale / 128),
+            atol=1e-1,
+        )
+
     def test_variance_scaling_serialization_with_axes(self):
         initializer = initializers.VarianceScaling(
             input_axes=[0], output_axes=[1, 2]

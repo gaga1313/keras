@@ -186,6 +186,7 @@ class EinsumDense(Layer):
         self.full_output_shape = tuple(full_output_shape)
         self.input_spec = InputSpec(ndim=len(input_shape))
         
+        kernel_initializer = self.kernel_initializer
         if (isinstance(self.kernel_initializer, VarianceScaling)
             and (self.kernel_initializer.input_axes is None
             or self.kernel_initializer.output_axes is None)
