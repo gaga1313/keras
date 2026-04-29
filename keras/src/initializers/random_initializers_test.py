@@ -7,6 +7,7 @@ from keras.src import random
 from keras.src import testing
 from keras.src import utils
 from keras.src.initializers.random_initializers import compute_fans
+from keras.src.layers.attention.multi_head_attention import MultiHeadAttention
 
 
 class RandomInitializersTest(testing.TestCase):
@@ -286,12 +287,7 @@ class RandomInitializersTest(testing.TestCase):
         )
 
     def test_mha_query_projection_variance(self):
-        from keras.src.layers.attention.multi_head_attention import (
-            MultiHeadAttention,
-        )
-
         utils.set_random_seed(1337)
-
         num_heads = 8
         key_dim = 16
         dim = 32
@@ -314,9 +310,7 @@ class RandomInitializersTest(testing.TestCase):
         # Expected fan_in is dim (32)
         # So expected stddev is sqrt(1 / dim)
         expected_std = np.sqrt(1.0 / dim)
-
         actual_std = np.std(backend.convert_to_numpy(kernel))
-
         self.assertAllClose(actual_std, expected_std, atol=1e-1)
 
     def test_variance_scaling_serialization_with_axes(self):
