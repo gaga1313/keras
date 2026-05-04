@@ -2404,9 +2404,8 @@ def unique(
             inverse.size(0), dtype=inverse.dtype, device=inverse.device
         )
         inverse, perm = inverse.flip([0]), perm.flip([0])
-        dim = 0 if axis is None else axis
-        unique_indices = inverse.new_empty(values.size(dim)).scatter_(
-            dim, inverse, perm
+        unique_indices = inverse.new_empty(values.size(0)).scatter_(
+            0, inverse, perm
         )
 
     if size is not None:
