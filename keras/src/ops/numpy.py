@@ -9614,6 +9614,7 @@ class Unique(Operation):
     def __init__(
         self,
         sorted=True,
+        return_index=False,
         return_inverse=False,
         return_counts=False,
         axis=None,
@@ -9624,6 +9625,7 @@ class Unique(Operation):
     ):
         super().__init__(name=name)
         self.sorted = sorted
+        self.return_index = return_index
         self.return_inverse = return_inverse
         self.return_counts = return_counts
         self.axis = axis
@@ -9634,6 +9636,7 @@ class Unique(Operation):
         return backend.numpy.unique(
             x,
             sorted=self.sorted,
+            return_index=self.return_index,
             return_inverse=self.return_inverse,
             return_counts=self.return_counts,
             axis=self.axis,
@@ -9655,6 +9658,11 @@ class Unique(Operation):
             values_shape[axis] = u_dim
 
         outputs = [KerasTensor(tuple(values_shape), dtype=x.dtype)]
+
+        # Indices of first occurrences shape is 1D
+        # with length matching the unique values
+        if self.return_index:
+            outputs.append(KerasTensor((u_dim,), dtype="int32"))
 
         # Inverse indices shape matches the original input size along axis
         if self.return_inverse:
@@ -9678,6 +9686,7 @@ class Unique(Operation):
 def unique(
     x,
     sorted=True,
+    return_index=False,
     return_inverse=False,
     return_counts=False,
     axis=None,
@@ -9694,6 +9703,8 @@ def unique(
         x: Input tensor.
         sorted: Whether to sort the unique elements in ascending order.
             Defaults to `True`.
+        return_index: If `True`, also return the indices of the first
+            occurrence of each unique element in `x`. Defaults to `False`.
         return_inverse: If `True`, also return the indices of the unique tensor
             (for the specified axis, if provided) that can be used to
             reconstruct `x`. Defaults to `False`.
@@ -9713,6 +9724,8 @@ def unique(
         A tensor or a tuple of tensors.
         - `unique_values`: The unique values. Shape is `(size,)` if `size` is
           provided and `axis=None`.
+        - `unique_index` (optional): The indices of the first occurrence of each
+          unique element in `x`. Only provided if `return_index` is `True`.
         - `unique_inverse` (optional): The indices to reconstruct the original
           array. Only provided if `return_inverse` is `True`.
         - `unique_counts` (optional): The number of occurrences of each unique
@@ -9750,6 +9763,7 @@ def unique(
     if any_symbolic_tensors((x,)):
         return Unique(
             sorted=sorted,
+            return_index=return_index,
             return_inverse=return_inverse,
             return_counts=return_counts,
             axis=axis,
@@ -9759,6 +9773,7 @@ def unique(
     return backend.numpy.unique(
         backend.convert_to_tensor(x),
         sorted=sorted,
+        return_index=return_index,
         return_inverse=return_inverse,
         return_counts=return_counts,
         axis=axis,
