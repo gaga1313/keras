@@ -1715,6 +1715,7 @@ def histogram(x, bins=10, range=None):
 def unique(
     x,
     sorted=True,
+    return_index=False,
     return_inverse=False,
     return_counts=False,
     axis=None,
@@ -1726,13 +1727,14 @@ def unique(
     # but do not pass it to np.unique to avoid TypeError in older versions.
     output = np.unique(
         x,
+        return_index=return_index,
         return_inverse=return_inverse,
         return_counts=return_counts,
         axis=axis,
         equal_nan=False,
     )
 
-    if not (return_inverse or return_counts):
+    if not (return_index or return_inverse or return_counts):
         output = [output]
     else:
         output = list(output)
@@ -1749,7 +1751,9 @@ def unique(
             indices[dim] = slice(0, size)
             values = values[tuple(indices)]
             if return_counts:
-                output[-1] = output[-1][tuple(indices)]
+                output[-1] = output[-1][indices[dim]]
+            if return_index:
+                output[1] = output[1][indices[dim]]
 
         elif values_count < size:
             # Pad
@@ -1758,7 +1762,11 @@ def unique(
             fill = 0 if fill_value is None else fill_value
             values = np.pad(values, pad_width, constant_values=fill)
             if return_counts:
-                output[-1] = np.pad(output[-1], pad_width, constant_values=0)
+                output[-1] = np.pad(
+                    output[-1], pad_width[dim], constant_values=0
+                )
+            if return_index:
+                output[1] = np.pad(output[1], pad_width[dim], constant_values=1)
 
     output[0] = values
     return output[0] if len(output) == 1 else tuple(output)
