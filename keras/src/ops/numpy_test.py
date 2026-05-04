@@ -7387,6 +7387,26 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
         self.assertAllClose(inv, [2, 0, 1, 0])
         self.assertAllClose(counts, [2, 1, 1])
 
+        # test_unique_return_index_combinations_2d
+        x = np.array([[1, 0], [0, 1], [1, 0], [2, 2], [0, 1]])
+        v, idx, inv, counts = knp.unique(
+            x,
+            axis=0,
+            return_index=True,
+            return_inverse=True,
+            return_counts=True,
+            size=5,
+            fill_value=-1,
+        )
+        # Unique rows (sorted lexicographically): [0, 1], [1, 0], [2, 2]
+        self.assertAllClose(v, [[0, 1], [1, 0], [2, 2], [-1, -1], [-1, -1]])
+        # First occurrences of each row: [0, 1] at row 1,
+        # [1, 0] at row 0, [2, 2] at row 3
+        self.assertAllClose(idx, [1, 0, 3, 1, 1])
+        # Source row map: row0->1, row1->0, row2->1, row3->2, row4->0
+        self.assertAllClose(inv, [1, 0, 1, 2, 0])
+        self.assertAllClose(counts, [2, 2, 1, 0, 0])
+
         # test_unique_return_index_with_size
         x = np.array([3, 1, 2, 1])
         # Padding case
