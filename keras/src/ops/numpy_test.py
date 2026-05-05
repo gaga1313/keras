@@ -3210,6 +3210,12 @@ class NumpyOneInputOpsStaticShapeTest(testing.TestCase):
         self.assertEqual(v_axis1.shape, (2, 6))
         self.assertEqual(idx1.shape, (6,))
 
+        v_axis_neg1, idx_neg1 = knp.unique(
+            x, return_index=True, axis=-1, size=6
+        )
+        self.assertEqual(v_axis1.shape, (2, 6))
+        self.assertEqual(idx1.shape, (6,))
+
 
 class NumpyTwoInputOpsCorrectnessTest(testing.TestCase):
     def test_add(self):
@@ -7406,6 +7412,37 @@ class NumpyOneInputOpsCorrectnessTest(testing.TestCase):
         # Source row map: row0->1, row1->0, row2->1, row3->2, row4->0
         self.assertAllClose(inv, [1, 0, 1, 2, 0])
         self.assertAllClose(counts, [2, 2, 1, 0, 0])
+
+        # test_unique_return_index_combinations_2d with negative axis
+        x = np.array([[1, 0], [0, 1], [1, 0], [2, 2], [0, 1]])
+        v, idx, inv, counts = knp.unique(
+            x,
+            axis=-1,
+            return_index=True,
+            return_inverse=True,
+            return_counts=True,
+            size=5,
+            fill_value=-1,
+        )
+        # Unique columns (sorted lexicographically): Col 1 before Col 0
+        # Resized to size=5 along last dimension (columns) via padding with -1
+        self.assertAllClose(
+            v,
+            [
+                [0, 1, -1, -1, -1],
+                [1, 0, -1, -1, -1],
+                [0, 1, -1, -1, -1],
+                [2, 2, -1, -1, -1],
+                [1, 0, -1, -1, -1],
+            ],
+        )
+        # Indices of first occurrences: [Col 1, Col 0]. Padded with 1.
+        self.assertAllClose(idx, [1, 0, 1, 1, 1])
+        # Mapping source columns to unique indexes:
+        # col 0 -> position 1, col 1 -> position 0
+        self.assertAllClose(inv, [1, 0])
+        # Both occur once. Padded with 0.
+        self.assertAllClose(counts, [1, 1, 0, 0, 0])
 
         # test_unique_return_index_with_size
         x = np.array([3, 1, 2, 1])

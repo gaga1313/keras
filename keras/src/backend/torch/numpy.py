@@ -2398,18 +2398,22 @@ def unique(
 
     values = output[0]
 
+    if axis is None:
+        dim = 0
+    else:
+        dim = axis + x.ndim if axis < 0 else axis
+
     if return_index:
         inverse = output[1]
         perm = torch.arange(
             inverse.size(0), dtype=inverse.dtype, device=inverse.device
         )
         inverse, perm = inverse.flip([0]), perm.flip([0])
-        unique_indices = inverse.new_empty(values.size(0)).scatter_(
+        unique_indices = inverse.new_empty(values.size(dim)).scatter_(
             0, inverse, perm
         )
 
     if size is not None:
-        dim = axis if axis is not None else 0
         values_count = values.shape[dim]
 
         if values_count > size:

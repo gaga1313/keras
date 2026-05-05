@@ -1742,7 +1742,10 @@ def unique(
     values = output[0]
 
     if size is not None:
-        dim = axis if axis is not None else 0
+        if axis is None:
+            dim = 0
+        else:
+            dim = axis + x.ndim if axis < 0 else axis
         values_count = values.shape[dim]
 
         if values_count > size:
