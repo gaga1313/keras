@@ -5,6 +5,7 @@ from keras.src import tree
 from keras.src.backend import config
 from keras.src.backend import standardize_dtype
 from keras.src.backend.common import dtypes
+from keras.src.backend.common.backend_utils import canonicalize_axis
 from keras.src.backend.common.backend_utils import standardize_axis_for_numpy
 from keras.src.backend.numpy.core import convert_to_tensor
 
@@ -1745,7 +1746,7 @@ def unique(
         if axis is None:
             dim = 0
         else:
-            dim = axis + x.ndim if axis < 0 else axis
+            dim = canonicalize_axis(axis, x.ndim)
         values_count = values.shape[dim]
 
         if values_count > size:

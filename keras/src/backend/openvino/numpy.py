@@ -5732,7 +5732,7 @@ def unique(
                 counts = uniq.output(3)
             dim = 0
     else:
-        dim = axis + x_rank if axis < 0 else axis
+        dim = canonicalize_axis(axis, x_rank)
         axis_node = ov_opset.constant(dim, Type.i32).output(0)
         dim_len_is_zero = False
         x_pshape = x.get_partial_shape()

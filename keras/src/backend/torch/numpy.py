@@ -2401,7 +2401,7 @@ def unique(
     if axis is None:
         dim = 0
     else:
-        dim = axis + x.ndim if axis < 0 else axis
+        dim = canonicalize_axis(axis, x.ndim)
 
     if return_index:
         inverse = output[1]
