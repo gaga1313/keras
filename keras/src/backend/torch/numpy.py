@@ -2408,9 +2408,8 @@ def unique(
         perm = torch.arange(
             inverse.size(0), dtype=inverse.dtype, device=inverse.device
         )
-        inverse, perm = inverse.flip([0]), perm.flip([0])
-        unique_indices = inverse.new_empty(values.size(dim)).scatter_(
-            0, inverse, perm
+        unique_indices = inverse.new_empty(values.size(dim)).scatter_reduce_(
+            0, inverse, perm, reduce="min", include_self=False
         )
 
     if size is not None:
