@@ -234,11 +234,108 @@ class TensorFlowTrainer(base_trainer.Trainer):
                 multi_step_on_iterator, reduce_retracing=True
             )
 
+        @tf.autograph.experimental.do_not_convert
+        def multi_step_device_on_iterator(iterator):
+            step_func = self._autoconvert_optionals(step_function)
+            empty_outputs = tf.experimental.Optional.empty(None)
+
+            def cond(execution_step, optional_outputs, next_optional_inputs):
+                return tf.logical_and(
+                    tf.less(execution_step, self.steps_per_execution),
+                    next_optional_inputs.has_value(),
+                )
+
+            def inner_body(
+                execution_step, optional_outputs, next_optional_inputs
+            ):
+                def has_next():
+                    next_optional_outputs = tf.experimental.Optional.from_value(
+                        step_func(next_optional_inputs.get_value())
+                    )
+                    empty_outputs._element_spec = (
+                        next_optional_outputs.element_spec
+                    )
+                    return next_optional_outputs
+
+                def no_has_next():
+                    optional_outputs._element_spec = empty_outputs._element_spec
+                    return optional_outputs
+
+                next_optional_outputs = tf.cond(
+                    tf.logical_and(
+                        tf.less(execution_step, self.steps_per_execution),
+                        next_optional_inputs.has_value(),
+                    ),
+                    has_next,
+                    no_has_next,
+                )
+
+                return (
+                    execution_step + 1,
+                    next_optional_outputs,
+                    tf.cond(
+                        tf.less(execution_step + 1, self.steps_per_execution),
+                        lambda: iterator.get_next_as_optional(),
+                        lambda: next_optional_inputs,
+                    ),
+                )
+
+            def body(execution_step, optional_outputs, next_optional_inputs):
+                for _ in range(
+                    min(
+                        self.unrolled_steps_per_execution,
+                        self.steps_per_execution,
+                    )
+                ):
+                    execution_step, optional_outputs, next_optional_inputs = (
+                        inner_body(
+                            execution_step,
+                            optional_outputs,
+                            next_optional_inputs,
+                        )
+                    )
+
+                return (execution_step, optional_outputs, next_optional_inputs)
+
+            def replica_fn(iterator):
+                execution_step = tf.constant(0)
+                next_optional_inputs = iterator.get_next_as_optional()
+                _, final_optional_outputs, _ = tf.while_loop(
+                    cond,
+                    body,
+                    loop_vars=[
+                        execution_step,
+                        empty_outputs,
+                        next_optional_inputs,
+                    ],
+                )
+                final_optional_outputs._element_spec = (
+                    empty_outputs.element_spec
+                )
+                return final_optional_outputs
+
+            outputs = self.distribute_strategy.run(replica_fn, args=(iterator,))
+            if _is_per_replica_instance(outputs):
+                opt = self.distribute_strategy.experimental_local_results(
+                    outputs
+                )[0]
+            else:
+                opt = outputs
+            return opt
+
+        if not self.run_eagerly:
+            multi_step_device_on_iterator = tf.function(
+                multi_step_device_on_iterator, reduce_retracing=True
+            )
+
         def function(iterator):
             if isinstance(
                 iterator, (tf.data.Iterator, tf.distribute.DistributedIterator)
             ):
-                opt_outputs = multi_step_on_iterator(iterator)
+                if not self.run_eagerly and self.steps_per_execution > 1:
+                    opt_outputs = multi_step_device_on_iterator(iterator)
+                else:
+                    opt_outputs = multi_step_on_iterator(iterator)
                 if not opt_outputs.has_value():
                     raise StopIteration
                 return opt_outputs.get_value()
