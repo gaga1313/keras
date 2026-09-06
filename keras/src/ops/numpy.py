@@ -5,6 +5,7 @@ import re
 import numpy as np
 
 from keras.src import backend
+from keras.src import ops
 from keras.src.api_export import keras_export
 from keras.src.backend import KerasTensor
 from keras.src.backend import any_symbolic_tensors
@@ -4043,7 +4044,7 @@ class Hsplit(Operation):
         self.indices_or_sections = indices_or_sections
 
     def call(self, x):
-        return backend.numpy.hsplit(x, self.indices_or_sections)
+        return _hsplit(x, self.indices_or_sections)
 
     def compute_output_spec(self, x):
         if len(x.shape) < 1:
@@ -4098,7 +4099,19 @@ def hsplit(x, indices_or_sections):
     """
     if any_symbolic_tensors((x,)):
         return Hsplit(indices_or_sections).symbolic_call(x)
-    return backend.numpy.hsplit(x, indices_or_sections)
+    return _hsplit(x, indices_or_sections)
+
+
+def _hsplit(x, indices_or_sections):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.numpy, "hsplit"
+    ):
+        return backend.numpy.hsplit(x, indices_or_sections)
+    x = backend.convert_to_tensor(x)
+    # 1D inputs are split along axis=0. Inputs with 2 or more dimensions are
+    # split along axis=1.
+    axis = 0 if len(x.shape) == 1 else 1
+    return ops.split(x, indices_or_sections, axis=axis)
 
 
 class Hypot(Operation):
@@ -8541,7 +8554,7 @@ class Vsplit(Operation):
         self.indices_or_sections = indices_or_sections
 
     def call(self, x):
-        return backend.numpy.vsplit(x, self.indices_or_sections)
+        return _vsplit(x, self.indices_or_sections)
 
     def compute_output_spec(self, x):
         if len(x.shape) < 2:
@@ -8582,7 +8595,16 @@ def vsplit(x, indices_or_sections):
     """
     if any_symbolic_tensors((x,)):
         return Vsplit(indices_or_sections).symbolic_call(x)
-    return backend.numpy.vsplit(x, indices_or_sections)
+    return _vsplit(x, indices_or_sections)
+
+
+def _vsplit(x, indices_or_sections):
+    if not config._use_backend_agnostic_ops() and hasattr(
+        backend.numpy, "vsplit"
+    ):
+        return backend.numpy.vsplit(x, indices_or_sections)
+    x = backend.convert_to_tensor(x)
+    return ops.split(x, indices_or_sections, axis=0)
 
 
 class Where(Operation):
@@ -9407,7 +9429,15 @@ class Corrcoef(Operation):
             dtype = "float64"
         else:
             dtype = dtypes.result_type(dtype, float)
-        return KerasTensor(x.shape, dtype=dtype)
+        if len(x.shape) > 2:
+            raise ValueError(
+                "Input tensor must have at most 2 dimensions. "
+                f"Received: x.shape={x.shape}"
+            )
+        # The correlation matrix of the `N` variables of a 2D input of shape
+        # `(N, D)` has shape `(N, N)`. A 1D input yields a scalar.
+        output_shape = (x.shape[0], x.shape[0]) if len(x.shape) == 2 else ()
+        return KerasTensor(output_shape, dtype=dtype)
 
 
 @keras_export(["keras.ops.corrcoef", "keras.ops.numpy.corrcoef"])
