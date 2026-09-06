@@ -88,33 +88,53 @@ class TFDatasetAdapter(DataAdapter):
         )
         return dataset.prefetch(tf.data.AUTOTUNE)
 
-    def get_numpy_iterator(self):
+    def get_numpy_iterator(self, super_batch=None):
         from keras.src.backend.tensorflow.core import convert_to_numpy
 
-        for batch in self._dataset:
+        if super_batch and self.batch_size is None:
+            iterator = (
+                tree.map_structure(convert_to_numpy, b, none_is_leaf=False)
+                for b in self._dataset
+            )
+            yield from data_adapter_utils.super_batch_iterator(
+                iterator, super_batch
+            )
+            return
+        for batch in self.get_tf_dataset(super_batch):
             yield tree.map_structure(
                 convert_to_numpy, batch, none_is_leaf=False
             )
 
-    def get_jax_iterator(self):
+    def get_jax_iterator(self, super_batch=None):
         from keras.src.backend.tensorflow.core import convert_to_numpy
         from keras.src.utils.module_utils import tensorflow as tf
 
         def convert_to_jax(x):
             if isinstance(x, tf.SparseTensor):
                 return data_adapter_utils.tf_sparse_to_jax_sparse(x)
-            else:
-                # We use numpy as an intermediary because it is faster.
-                return convert_to_numpy(x)
+            return convert_to_numpy(x)
 
-        for batch in self._dataset:
+        if super_batch and self.batch_size is None:
+            iterator = (
+                tree.map_structure(convert_to_jax, b, none_is_leaf=False)
+                for b in self._dataset
+            )
+            yield from data_adapter_utils.super_batch_iterator(
+                iterator, super_batch
+            )
+            return
+        for batch in self.get_tf_dataset(super_batch):
             yield tree.map_structure(convert_to_jax, batch, none_is_leaf=False)
 
-    def get_tf_dataset(self):
+    def get_tf_dataset(self, super_batch=None):
+        if super_batch:
+            return self._dataset.batch(super_batch)
         return self._dataset
 
-    def get_torch_dataloader(self):
-        return data_adapter_utils.get_torch_dataloader(self._dataset)
+    def get_torch_dataloader(self, super_batch=None):
+        return data_adapter_utils.get_torch_dataloader(
+            self.get_tf_dataset(super_batch)
+        )
 
     @property
     def num_batches(self):

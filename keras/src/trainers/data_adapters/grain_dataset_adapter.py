@@ -56,7 +56,7 @@ class GrainDatasetAdapter(DataAdapter):
             batch_size = int(batch_size)
         return batch_size, output_signature
 
-    def get_numpy_iterator(self):
+    def get_numpy_iterator(self, super_batch=None):
         # Workaround for internal change in Grain which isn't a part of a
         # release yet.
         # TODO(abheesht17): Remove this after the next Grain release.
@@ -103,9 +103,13 @@ class GrainDatasetAdapter(DataAdapter):
                 read_options=self._dataset._read_options,
                 enable_profiling=self._dataset._multiprocessing_options.enable_profiling,
             )
+        if super_batch:
+            return data_adapter_utils.super_batch_iterator(
+                iter(dataset), super_batch
+            )
         return dataset
 
-    def get_jax_iterator(self):
+    def get_jax_iterator(self, super_batch=None):
         def convert_to_jax_compatible(x):
             if data_adapter_utils.is_scipy_sparse(x):
                 x = data_adapter_utils.scipy_sparse_to_jax_sparse(x)
@@ -135,9 +139,13 @@ class GrainDatasetAdapter(DataAdapter):
                 read_options=self._dataset._read_options,
                 enable_profiling=self._dataset._multiprocessing_options.enable_profiling,
             )
+        if super_batch:
+            return data_adapter_utils.super_batch_iterator(
+                iter(dataset), super_batch
+            )
         return dataset
 
-    def get_tf_dataset(self):
+    def get_tf_dataset(self, super_batch=None):
         def convert_to_tf(x):
             if x is None:
                 return tf.experimental.Optional.empty(None)
@@ -181,11 +189,14 @@ class GrainDatasetAdapter(DataAdapter):
                 self._output_signature,
             )
 
-        return tf.data.Dataset.from_generator(
+        ds = tf.data.Dataset.from_generator(
             lambda: dataset, output_signature=self._output_tf_signature
         )
+        if super_batch:
+            ds = ds.batch(super_batch)
+        return ds
 
-    def get_torch_dataloader(self):
+    def get_torch_dataloader(self, super_batch=None):
         import torch.utils.data as torch_data
 
         class ConverterIterableDataset(torch_data.IterableDataset):
@@ -197,9 +208,14 @@ class GrainDatasetAdapter(DataAdapter):
                 return iter(self.iterable)
 
         # `batch_size=None` indicates that we should not re-batch
-        return torch_data.DataLoader(
+        loader = torch_data.DataLoader(
             ConverterIterableDataset(self._dataset), batch_size=None
         )
+        if super_batch:
+            return data_adapter_utils.super_batch_iterator(
+                iter(loader), super_batch
+            )
+        return loader
 
     @property
     def num_batches(self):

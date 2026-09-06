@@ -12,6 +12,9 @@ from keras.src.trainers.data_adapters.data_adapter_utils import (
 from keras.src.trainers.data_adapters.data_adapter_utils import (
     class_weight_to_sample_weights,
 )
+from keras.src.trainers.data_adapters.data_adapter_utils import (
+    super_batch_iterator,
+)
 
 
 class TestDistributedBatchSampler(testing.TestCase):
@@ -252,3 +255,50 @@ class TestDataAdapterFactory(testing.TestCase):
         # "generator"
         with self.assertRaisesRegex(ValueError, "providing `x` as a generator"):
             get_data_adapter(generator(), y=np.ones((10, 1)))
+
+
+class TestSuperBatchIterator(testing.TestCase):
+    def test_exact_multiple(self):
+        def _gen():
+            for i in range(6):
+                yield np.ones((2, 3)) * i
+
+        batches = list(super_batch_iterator(_gen(), super_batch=2))
+        self.assertEqual(len(batches), 3)
+        for b in batches:
+            self.assertEqual(b.shape, (2, 2, 3))
+
+    def test_remainder_batches(self):
+        def _gen():
+            for i in range(5):
+                yield np.ones((2, 3)) * i
+
+        batches = list(super_batch_iterator(_gen(), super_batch=2))
+        self.assertEqual(len(batches), 3)
+        self.assertEqual(batches[0].shape, (2, 2, 3))
+        self.assertEqual(batches[1].shape, (2, 2, 3))
+        self.assertIsInstance(batches[2], list)
+        self.assertEqual(len(batches[2]), 1)
+        self.assertEqual(batches[2][0].shape, (2, 3))
+
+    def test_unequal_shapes_fallback(self):
+        def _gen():
+            yield np.ones((2, 3))
+            yield np.ones((1, 3))
+
+        batches = list(super_batch_iterator(_gen(), super_batch=2))
+        self.assertEqual(len(batches), 1)
+        self.assertIsInstance(batches[0], list)
+        self.assertEqual(len(batches[0]), 2)
+
+    def test_nested_structure_and_none(self):
+        def _gen():
+            for i in range(4):
+                yield (np.ones((2, 3)), np.zeros((2, 1)), None)
+
+        batches = list(super_batch_iterator(_gen(), super_batch=2))
+        self.assertEqual(len(batches), 2)
+        for x, y, sw in batches:
+            self.assertEqual(x.shape, (2, 2, 3))
+            self.assertEqual(y.shape, (2, 2, 1))
+            self.assertIsNone(sw)

@@ -519,3 +519,32 @@ def jax_sparse_to_tf_sparse(x):
     from keras.src.utils.module_utils import tensorflow as tf
 
     return tf.SparseTensor(x.indices, x.data, x.shape)
+
+
+def super_batch_iterator(iterator, super_batch):
+    """Wraps an iterator to stack batches into super-batches along axis 0."""
+    while True:
+        batches = []
+        try:
+            for _ in range(super_batch):
+                batches.append(next(iterator))
+        except StopIteration:
+            pass
+
+        if not batches:
+            break
+
+        if len(batches) == super_batch:
+            try:
+
+                def _stack_leaf(*xs):
+                    if xs[0] is None:
+                        return None
+                    return np.stack(xs, axis=0)
+
+                yield tree.map_structure(_stack_leaf, *batches)
+                continue
+            except ValueError:
+                pass
+
+        yield batches

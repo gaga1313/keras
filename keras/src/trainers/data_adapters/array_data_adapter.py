@@ -112,7 +112,7 @@ class ArrayDataAdapter(DataAdapter):
             ),
         )
 
-    def get_numpy_iterator(self):
+    def get_numpy_iterator(self, super_batch=None):
         inputs = array_slicing.convert_to_sliceable(
             self._inputs, target_backend="numpy"
         )
@@ -122,9 +122,14 @@ class ArrayDataAdapter(DataAdapter):
             x = sliceable.convert_to_numpy(x)
             return x
 
-        return self._get_iterator(slice_and_convert_to_numpy, inputs)
+        iterator = self._get_iterator(slice_and_convert_to_numpy, inputs)
+        if super_batch:
+            return data_adapter_utils.super_batch_iterator(
+                iterator, super_batch
+            )
+        return iterator
 
-    def get_tf_dataset(self):
+    def get_tf_dataset(self, super_batch=None):
         from keras.src.utils.module_utils import tensorflow as tf
 
         shuffle = self._shuffle
@@ -267,9 +272,11 @@ class ArrayDataAdapter(DataAdapter):
             tf.data.experimental.AutoShardPolicy.DATA
         )
         dataset = dataset.with_options(options)
+        if super_batch:
+            dataset = dataset.batch(super_batch)
         return dataset.prefetch(tf.data.AUTOTUNE)
 
-    def get_jax_iterator(self):
+    def get_jax_iterator(self, super_batch=None):
         inputs = array_slicing.convert_to_sliceable(
             self._inputs, target_backend="jax"
         )
@@ -279,9 +286,14 @@ class ArrayDataAdapter(DataAdapter):
             x = sliceable.convert_to_jax_compatible(x)
             return x
 
-        return self._get_iterator(slice_and_convert_to_jax, inputs)
+        iterator = self._get_iterator(slice_and_convert_to_jax, inputs)
+        if super_batch:
+            return data_adapter_utils.super_batch_iterator(
+                iterator, super_batch
+            )
+        return iterator
 
-    def get_torch_dataloader(self):
+    def get_torch_dataloader(self, super_batch=None):
         import torch
 
         from keras.src.backend.torch.core import convert_to_tensor
@@ -393,7 +405,10 @@ class ArrayDataAdapter(DataAdapter):
         dataloader = torch.utils.data.DataLoader(
             dataset, batch_sampler=batch_sampler, collate_fn=no_op_collate
         )
-
+        if super_batch:
+            return data_adapter_utils.super_batch_iterator(
+                iter(dataloader), super_batch
+            )
         return dataloader
 
     def _get_iterator(self, slice_and_convert_fn, inputs):
