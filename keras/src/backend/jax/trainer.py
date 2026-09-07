@@ -494,7 +494,9 @@ class JAXTrainer(base_trainer.Trainer):
         )
 
         self._symbolic_build(
-            data_batch=next(epoch_iterator.data_adapter.get_jax_iterator())
+            data_batch=next(
+                iter(epoch_iterator.data_adapter.get_jax_iterator())
+            )
         )
         epoch_iterator.reset()
 
@@ -661,7 +663,9 @@ class JAXTrainer(base_trainer.Trainer):
             )
 
         self._symbolic_build(
-            data_batch=next(epoch_iterator.data_adapter.get_jax_iterator())
+            data_batch=next(
+                iter(epoch_iterator.data_adapter.get_jax_iterator())
+            )
         )
         epoch_iterator.reset()
 
