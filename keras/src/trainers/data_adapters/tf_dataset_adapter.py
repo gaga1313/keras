@@ -127,8 +127,10 @@ class TFDatasetAdapter(DataAdapter):
             yield tree.map_structure(convert_to_jax, batch, none_is_leaf=False)
 
     def get_tf_dataset(self, super_batch=None):
+        from keras.src.utils.module_utils import tensorflow as tf
+
         if super_batch:
-            return self._dataset.batch(super_batch)
+            return self._dataset.batch(super_batch).prefetch(tf.data.AUTOTUNE)
         return self._dataset
 
     def get_torch_dataloader(self, super_batch=None):
