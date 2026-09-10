@@ -126,12 +126,11 @@ class TorchDataLoaderAdapter(DataAdapter):
         self._epoch += 1
 
     def get_numpy_iterator(self):
-        return (
-            tree.map_structure(
+        for batch in self._dataloader:
+            # shared memory using `np.asarray`
+            yield tree.map_structure(
                 lambda x: np.asarray(x.cpu()), batch, none_is_leaf=False
             )
-            for batch in self._dataloader
-        )
 
     def get_jax_iterator(self, super_batch=None):
         # We use numpy as an intermediary because it is faster.
