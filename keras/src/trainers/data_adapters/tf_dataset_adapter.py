@@ -112,6 +112,7 @@ class TFDatasetAdapter(DataAdapter):
         def convert_to_jax(x):
             if isinstance(x, tf.SparseTensor):
                 return data_adapter_utils.tf_sparse_to_jax_sparse(x)
+            # We use numpy as an intermediary because it is faster.
             return convert_to_numpy(x)
 
         if super_batch and self.batch_size is None:
