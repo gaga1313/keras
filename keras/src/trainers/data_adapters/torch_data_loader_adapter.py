@@ -170,8 +170,10 @@ class TorchDataLoaderAdapter(DataAdapter):
 
     def get_torch_dataloader(self, super_batch=None):
         if super_batch:
+            import torch
+
             return data_adapter_utils.super_batch_iterator(
-                iter(self._dataloader), super_batch
+                iter(self._dataloader), super_batch, stack_fn=torch.stack
             )
         return self._dataloader
 

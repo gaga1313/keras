@@ -288,8 +288,10 @@ class ArrayDataAdapter(DataAdapter):
 
         iterator = self._get_iterator(slice_and_convert_to_jax, inputs)
         if super_batch:
+            import jax.numpy as jnp
+
             return data_adapter_utils.super_batch_iterator(
-                iterator, super_batch
+                iterator, super_batch, stack_fn=jnp.stack
             )
         return iterator
 
@@ -407,7 +409,7 @@ class ArrayDataAdapter(DataAdapter):
         )
         if super_batch:
             return data_adapter_utils.super_batch_iterator(
-                iter(dataloader), super_batch
+                iter(dataloader), super_batch, stack_fn=torch.stack
             )
         return dataloader
 

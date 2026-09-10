@@ -302,3 +302,31 @@ class TestSuperBatchIterator(testing.TestCase):
             self.assertEqual(x.shape, (2, 2, 3))
             self.assertEqual(y.shape, (2, 2, 1))
             self.assertIsNone(sw)
+
+    def test_custom_stack_fn(self):
+        import jax
+        import jax.numpy as jnp
+
+        def _gen():
+            for i in range(4):
+                yield jnp.ones((2, 3)) * i
+
+        batches = list(
+            super_batch_iterator(_gen(), super_batch=2, stack_fn=jnp.stack)
+        )
+        self.assertEqual(len(batches), 2)
+        for b in batches:
+            self.assertIsInstance(b, jax.Array)
+            self.assertEqual(b.shape, (2, 2, 3))
+
+    def test_sparse_tensor_raises(self):
+        import scipy.sparse as sp
+
+        def _gen():
+            for _ in range(4):
+                yield sp.csr_matrix(np.eye(3))
+
+        with self.assertRaisesRegex(
+            ValueError, "is not supported with sparse tensors"
+        ):
+            list(super_batch_iterator(_gen(), super_batch=2))

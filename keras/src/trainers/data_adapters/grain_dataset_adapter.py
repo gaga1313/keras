@@ -140,8 +140,10 @@ class GrainDatasetAdapter(DataAdapter):
                 enable_profiling=self._dataset._multiprocessing_options.enable_profiling,
             )
         if super_batch:
+            import jax.numpy as jnp
+
             return data_adapter_utils.super_batch_iterator(
-                iter(dataset), super_batch
+                iter(dataset), super_batch, stack_fn=jnp.stack
             )
         return dataset
 
@@ -212,8 +214,10 @@ class GrainDatasetAdapter(DataAdapter):
             ConverterIterableDataset(self._dataset), batch_size=None
         )
         if super_batch:
+            import torch
+
             return data_adapter_utils.super_batch_iterator(
-                iter(loader), super_batch
+                iter(loader), super_batch, stack_fn=torch.stack
             )
         return loader
 

@@ -96,32 +96,19 @@ def _build_multi_step_iterator_step(
     def iterator_step(state, iterator):
         batch = next(iterator)
 
-        # Case 1: List remainder from host-stacked iterators
-        if isinstance(batch, list):
+        # Case 1: List remainder from super_batch_iterator
+        if isinstance(batch, data_adapter_utils.PartialBatchList):
             return _unroll_steps(
                 step_function, state, batch, concatenate_outputs, concat_fn
             )
 
-        # Case 2: Partial super-batch from tf.data (leaf.shape[0] < SPE)
         leaf = tree.flatten(batch)[0]
-        if leaf.shape[0] < steps_per_execution:
-            sliced_batches = [
-                tree.map_structure(lambda x, i=i: x[i], batch)
-                for i in range(leaf.shape[0])
-            ]
-            return _unroll_steps(
-                step_function,
-                state,
-                sliced_batches,
-                concatenate_outputs,
-                concat_fn,
-            )
 
-        # Case 3: Steady-state full super-batch on-device
-        if multi_step_fn is not None:
+        # Case 2: Steady-state full super-batch on-device
+        if multi_step_fn is not None and leaf.shape[0] == steps_per_execution:
             return multi_step_fn(state, batch)
 
-        # Case 4: Eager / unjitted fallback for full super-batch
+        # Case 3: Partial super-batch or eager/unjitted fallback
         sliced_batches = [
             tree.map_structure(lambda x, i=i: x[i], batch)
             for i in range(leaf.shape[0])
@@ -1197,8 +1184,10 @@ class JAXEpochIterator(EpochIterator):
 
         def _distributed_iterator():
             for data in raw_iterator:
-                if isinstance(data, list):
-                    yield [_distribute_data(b) for b in data]
+                if isinstance(data, data_adapter_utils.PartialBatchList):
+                    yield data_adapter_utils.PartialBatchList(
+                        [_distribute_data(b) for b in data]
+                    )
                 else:
                     yield _distribute_data(
                         data, is_super_batch=super_batch is not None

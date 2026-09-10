@@ -313,8 +313,10 @@ class PyDatasetAdapter(DataAdapter):
     def get_jax_iterator(self, super_batch=None):
         iterator = data_adapter_utils.get_jax_iterator(self._get_iterator())
         if super_batch:
+            import jax.numpy as jnp
+
             return data_adapter_utils.super_batch_iterator(
-                iterator, super_batch
+                iterator, super_batch, stack_fn=jnp.stack
             )
         return iterator
 
@@ -355,8 +357,10 @@ class PyDatasetAdapter(DataAdapter):
     def get_torch_dataloader(self, super_batch=None):
         loader = data_adapter_utils.get_torch_dataloader(self._get_iterator())
         if super_batch:
+            import torch
+
             return data_adapter_utils.super_batch_iterator(
-                iter(loader), super_batch
+                iter(loader), super_batch, stack_fn=torch.stack
             )
         return loader
 
