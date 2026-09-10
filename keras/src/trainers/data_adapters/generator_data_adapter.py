@@ -36,7 +36,7 @@ class GeneratorDataAdapter(DataAdapter):
         if super_batch:
             import jax.numpy as jnp
 
-            return data_adapter_utils.super_batch_iterator(
+            iterator = data_adapter_utils.super_batch_iterator(
                 iterator, super_batch, stack_fn=jnp.stack
             )
         return iterator
@@ -78,7 +78,8 @@ class GeneratorDataAdapter(DataAdapter):
             get_tf_iterator,
             output_signature=self._output_signature,
         )
-        return ds.prefetch(tf.data.AUTOTUNE)
+        ds = ds.prefetch(tf.data.AUTOTUNE)
+        return ds
 
     def get_torch_dataloader(self):
         return data_adapter_utils.get_torch_dataloader(self.generator())

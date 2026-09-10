@@ -2909,19 +2909,13 @@ class TestTrainer(testing.TestCase):
 
     @pytest.mark.requires_trainable_backend
     def test_steps_per_execution_with_list_pytree(self):
-        import torch
-
-        class TorchListDataset(torch.utils.data.Dataset):
-            def __len__(self):
-                return 16
-
-            def __getitem__(self, idx):
-                return (
-                    np.ones((4,), dtype="float32"),
-                    np.zeros((1,), dtype="float32"),
+        def generator():
+            for _ in range(4):
+                yield (
+                    np.ones((4, 4), dtype="float32"),
+                    np.zeros((4, 1), dtype="float32"),
                 )
 
-        loader = torch.utils.data.DataLoader(TorchListDataset(), batch_size=4)
         inputs = keras.Input(shape=(4,))
         outputs = keras.layers.Dense(1)(inputs)
         model = keras.Model(inputs=inputs, outputs=outputs)
@@ -2931,7 +2925,7 @@ class TestTrainer(testing.TestCase):
             steps_per_execution=2,
             jit_compile=True,
         )
-        history = model.fit(loader, epochs=1, verbose=0)
+        history = model.fit(generator(), epochs=1, verbose=0)
         self.assertIn("loss", history.history)
 
 

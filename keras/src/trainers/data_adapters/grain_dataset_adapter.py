@@ -138,7 +138,7 @@ class GrainDatasetAdapter(DataAdapter):
         if super_batch:
             import jax.numpy as jnp
 
-            return data_adapter_utils.super_batch_iterator(
+            dataset = data_adapter_utils.super_batch_iterator(
                 iter(dataset), super_batch, stack_fn=jnp.stack
             )
         return dataset

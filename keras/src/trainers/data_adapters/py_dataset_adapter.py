@@ -310,7 +310,7 @@ class PyDatasetAdapter(DataAdapter):
         if super_batch:
             import jax.numpy as jnp
 
-            return data_adapter_utils.super_batch_iterator(
+            iterator = data_adapter_utils.super_batch_iterator(
                 iterator, super_batch, stack_fn=jnp.stack
             )
         return iterator
