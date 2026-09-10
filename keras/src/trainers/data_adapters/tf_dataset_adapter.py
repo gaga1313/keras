@@ -88,19 +88,10 @@ class TFDatasetAdapter(DataAdapter):
         )
         return dataset.prefetch(tf.data.AUTOTUNE)
 
-    def get_numpy_iterator(self, super_batch=None):
+    def get_numpy_iterator(self):
         from keras.src.backend.tensorflow.core import convert_to_numpy
 
-        if super_batch and self.batch_size is None:
-            iterator = (
-                tree.map_structure(convert_to_numpy, b, none_is_leaf=False)
-                for b in self._dataset
-            )
-            yield from data_adapter_utils.super_batch_iterator(
-                iterator, super_batch
-            )
-            return
-        for batch in self.get_tf_dataset(super_batch):
+        for batch in self._dataset:
             yield tree.map_structure(
                 convert_to_numpy, batch, none_is_leaf=False
             )
@@ -126,20 +117,18 @@ class TFDatasetAdapter(DataAdapter):
                 iterator, super_batch, stack_fn=jnp.stack
             )
             return
-        for batch in self.get_tf_dataset(super_batch):
+
+        ds = self.get_tf_dataset()
+        if super_batch:
+            ds = ds.batch(super_batch).prefetch(tf.data.AUTOTUNE)
+        for batch in ds:
             yield tree.map_structure(convert_to_jax, batch, none_is_leaf=False)
 
-    def get_tf_dataset(self, super_batch=None):
-        from keras.src.utils.module_utils import tensorflow as tf
-
-        if super_batch:
-            return self._dataset.batch(super_batch).prefetch(tf.data.AUTOTUNE)
+    def get_tf_dataset(self):
         return self._dataset
 
-    def get_torch_dataloader(self, super_batch=None):
-        return data_adapter_utils.get_torch_dataloader(
-            self.get_tf_dataset(super_batch)
-        )
+    def get_torch_dataloader(self):
+        return data_adapter_utils.get_torch_dataloader(self._dataset)
 
     @property
     def num_batches(self):

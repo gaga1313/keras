@@ -9,6 +9,7 @@ from keras.src import testing
 from keras.src.trainers.data_adapters.data_adapter_utils import (
     DistributedBatchSampler,
 )
+from keras.src.trainers.data_adapters.data_adapter_utils import PartialBatchList
 from keras.src.trainers.data_adapters.data_adapter_utils import (
     class_weight_to_sample_weights,
 )
@@ -277,7 +278,7 @@ class TestSuperBatchIterator(testing.TestCase):
         self.assertEqual(len(batches), 3)
         self.assertEqual(batches[0].shape, (2, 2, 3))
         self.assertEqual(batches[1].shape, (2, 2, 3))
-        self.assertIsInstance(batches[2], list)
+        self.assertIsInstance(batches[2], PartialBatchList)
         self.assertEqual(len(batches[2]), 1)
         self.assertEqual(batches[2][0].shape, (2, 3))
 
@@ -288,7 +289,7 @@ class TestSuperBatchIterator(testing.TestCase):
 
         batches = list(super_batch_iterator(_gen(), super_batch=2))
         self.assertEqual(len(batches), 1)
-        self.assertIsInstance(batches[0], list)
+        self.assertIsInstance(batches[0], PartialBatchList)
         self.assertEqual(len(batches[0]), 2)
 
     def test_nested_structure_and_none(self):

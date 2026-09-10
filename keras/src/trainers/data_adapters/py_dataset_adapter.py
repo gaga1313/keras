@@ -302,13 +302,8 @@ class PyDatasetAdapter(DataAdapter):
             else:
                 return self._finite_enqueuer_generator()
 
-    def get_numpy_iterator(self, super_batch=None):
-        iterator = data_adapter_utils.get_numpy_iterator(self._get_iterator())
-        if super_batch:
-            return data_adapter_utils.super_batch_iterator(
-                iterator, super_batch
-            )
-        return iterator
+    def get_numpy_iterator(self):
+        return data_adapter_utils.get_numpy_iterator(self._get_iterator())
 
     def get_jax_iterator(self, super_batch=None):
         iterator = data_adapter_utils.get_jax_iterator(self._get_iterator())
@@ -320,7 +315,7 @@ class PyDatasetAdapter(DataAdapter):
             )
         return iterator
 
-    def get_tf_dataset(self, super_batch=None):
+    def get_tf_dataset(self):
         from keras.src.utils.module_utils import tensorflow as tf
 
         num_batches = self.py_dataset.num_batches
@@ -350,19 +345,10 @@ class PyDatasetAdapter(DataAdapter):
             ds = ds.with_options(options)
         else:
             ds = ds.prefetch(tf.data.AUTOTUNE)
-        if super_batch:
-            ds = ds.batch(super_batch)
         return ds
 
-    def get_torch_dataloader(self, super_batch=None):
-        loader = data_adapter_utils.get_torch_dataloader(self._get_iterator())
-        if super_batch:
-            import torch
-
-            return data_adapter_utils.super_batch_iterator(
-                iter(loader), super_batch, stack_fn=torch.stack
-            )
-        return loader
+    def get_torch_dataloader(self):
+        return data_adapter_utils.get_torch_dataloader(self._get_iterator())
 
     def on_epoch_begin(self):
         if self._within_epoch:

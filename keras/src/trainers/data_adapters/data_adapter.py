@@ -6,7 +6,7 @@ class DataAdapter:
     NumPy arrays, tf.Tensors, tf.data.Datasets, Keras PyDatasets, etc.
     """
 
-    def get_numpy_iterator(self, super_batch=None):
+    def get_numpy_iterator(self):
         """Get a Python iterable for the `DataAdapter`, that yields NumPy
         arrays.
 
@@ -15,7 +15,7 @@ class DataAdapter:
         """
         raise NotImplementedError
 
-    def get_tf_dataset(self, super_batch=None):
+    def get_tf_dataset(self):
         """Get a `tf.data.Dataset` instance for the DataAdapter.
 
         Note that the dataset returned does not repeat for epoch, so caller
@@ -38,7 +38,7 @@ class DataAdapter:
         """
         raise NotImplementedError
 
-    def get_torch_dataloader(self, super_batch=None):
+    def get_torch_dataloader(self):
         """Get a Torch `DataLoader` for the `DataAdapter`.
 
         Returns:

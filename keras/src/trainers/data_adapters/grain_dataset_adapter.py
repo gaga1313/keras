@@ -56,7 +56,7 @@ class GrainDatasetAdapter(DataAdapter):
             batch_size = int(batch_size)
         return batch_size, output_signature
 
-    def get_numpy_iterator(self, super_batch=None):
+    def get_numpy_iterator(self):
         # Workaround for internal change in Grain which isn't a part of a
         # release yet.
         # TODO(abheesht17): Remove this after the next Grain release.
@@ -103,10 +103,6 @@ class GrainDatasetAdapter(DataAdapter):
                 read_options=self._dataset._read_options,
                 enable_profiling=self._dataset._multiprocessing_options.enable_profiling,
             )
-        if super_batch:
-            return data_adapter_utils.super_batch_iterator(
-                iter(dataset), super_batch
-            )
         return dataset
 
     def get_jax_iterator(self, super_batch=None):
@@ -147,7 +143,7 @@ class GrainDatasetAdapter(DataAdapter):
             )
         return dataset
 
-    def get_tf_dataset(self, super_batch=None):
+    def get_tf_dataset(self):
         def convert_to_tf(x):
             if x is None:
                 return tf.experimental.Optional.empty(None)
@@ -191,14 +187,11 @@ class GrainDatasetAdapter(DataAdapter):
                 self._output_signature,
             )
 
-        ds = tf.data.Dataset.from_generator(
+        return tf.data.Dataset.from_generator(
             lambda: dataset, output_signature=self._output_tf_signature
         )
-        if super_batch:
-            ds = ds.batch(super_batch)
-        return ds
 
-    def get_torch_dataloader(self, super_batch=None):
+    def get_torch_dataloader(self):
         import torch.utils.data as torch_data
 
         class ConverterIterableDataset(torch_data.IterableDataset):
@@ -210,16 +203,9 @@ class GrainDatasetAdapter(DataAdapter):
                 return iter(self.iterable)
 
         # `batch_size=None` indicates that we should not re-batch
-        loader = torch_data.DataLoader(
+        return torch_data.DataLoader(
             ConverterIterableDataset(self._dataset), batch_size=None
         )
-        if super_batch:
-            import torch
-
-            return data_adapter_utils.super_batch_iterator(
-                iter(loader), super_batch, stack_fn=torch.stack
-            )
-        return loader
 
     @property
     def num_batches(self):

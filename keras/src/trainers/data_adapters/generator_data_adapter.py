@@ -28,13 +28,8 @@ class GeneratorDataAdapter(DataAdapter):
                 f"Received: {first_batches[0]}"
             )
 
-    def get_numpy_iterator(self, super_batch=None):
-        iterator = data_adapter_utils.get_numpy_iterator(self.generator())
-        if super_batch:
-            return data_adapter_utils.super_batch_iterator(
-                iterator, super_batch
-            )
-        return iterator
+    def get_numpy_iterator(self):
+        return data_adapter_utils.get_numpy_iterator(self.generator())
 
     def get_jax_iterator(self, super_batch=None):
         iterator = data_adapter_utils.get_jax_iterator(self.generator())
@@ -46,7 +41,7 @@ class GeneratorDataAdapter(DataAdapter):
             )
         return iterator
 
-    def get_tf_dataset(self, super_batch=None):
+    def get_tf_dataset(self):
         from keras.src.utils.module_utils import tensorflow as tf
 
         def convert_to_tf(x, spec):
@@ -83,20 +78,10 @@ class GeneratorDataAdapter(DataAdapter):
             get_tf_iterator,
             output_signature=self._output_signature,
         )
-        if super_batch:
-            ds = ds.batch(super_batch)
-        ds = ds.prefetch(tf.data.AUTOTUNE)
-        return ds
+        return ds.prefetch(tf.data.AUTOTUNE)
 
-    def get_torch_dataloader(self, super_batch=None):
-        loader = data_adapter_utils.get_torch_dataloader(self.generator())
-        if super_batch:
-            import torch
-
-            return data_adapter_utils.super_batch_iterator(
-                iter(loader), super_batch, stack_fn=torch.stack
-            )
-        return loader
+    def get_torch_dataloader(self):
+        return data_adapter_utils.get_torch_dataloader(self.generator())
 
     @property
     def num_batches(self):

@@ -125,25 +125,26 @@ class TorchDataLoaderAdapter(DataAdapter):
     def on_epoch_end(self):
         self._epoch += 1
 
-    def get_numpy_iterator(self, super_batch=None):
-        iterator = (
+    def get_numpy_iterator(self):
+        return (
             tree.map_structure(
                 lambda x: np.asarray(x.cpu()), batch, none_is_leaf=False
             )
             for batch in self._dataloader
         )
 
+    def get_jax_iterator(self, super_batch=None):
+        # We use numpy as an intermediary because it is faster.
+        iterator = self.get_numpy_iterator()
         if super_batch:
+            import jax.numpy as jnp
+
             return data_adapter_utils.super_batch_iterator(
-                iterator, super_batch
+                iterator, super_batch, stack_fn=jnp.stack
             )
         return iterator
 
-    def get_jax_iterator(self, super_batch=None):
-        # We use numpy as an intermediary because it is faster.
-        return self.get_numpy_iterator(super_batch=super_batch)
-
-    def get_tf_dataset(self, super_batch=None):
+    def get_tf_dataset(self):
         from keras.src.utils.module_utils import tensorflow as tf
 
         def get_tf_iterator():
@@ -160,21 +161,12 @@ class TorchDataLoaderAdapter(DataAdapter):
             self._output_signature = tree.lists_to_tuples(
                 data_adapter_utils.get_tensor_spec(batches)
             )
-        ds = tf.data.Dataset.from_generator(
+        return tf.data.Dataset.from_generator(
             get_tf_iterator,
             output_signature=self._output_signature,
         )
-        if super_batch:
-            ds = ds.batch(super_batch)
-        return ds
 
-    def get_torch_dataloader(self, super_batch=None):
-        if super_batch:
-            import torch
-
-            return data_adapter_utils.super_batch_iterator(
-                iter(self._dataloader), super_batch, stack_fn=torch.stack
-            )
+    def get_torch_dataloader(self):
         return self._dataloader
 
     @property
