@@ -106,21 +106,22 @@ class TFDatasetAdapter(DataAdapter):
             # We use numpy as an intermediary because it is faster.
             return convert_to_numpy(x)
 
+        if super_batch and self.batch_size is not None:
+            ds = self._dataset.batch(super_batch).prefetch(tf.data.AUTOTUNE)
+        else:
+            ds = self._dataset
+        iterator = (
+            tree.map_structure(convert_to_jax, b, none_is_leaf=False)
+            for b in ds
+        )
         if super_batch and self.batch_size is None:
             import jax.numpy as jnp
 
             iterator = data_adapter_utils.super_batch_iterator(
-                self._dataset, super_batch, stack_fn=jnp.stack
+                iterator, super_batch, stack_fn=jnp.stack
             )
-        elif super_batch:
-            iterator = self._dataset.batch(super_batch).prefetch(
-                tf.data.AUTOTUNE
-            )
-        else:
-            iterator = self._dataset
-
         for batch in iterator:
-            yield tree.map_structure(convert_to_jax, batch, none_is_leaf=False)
+            yield batch
 
     def get_tf_dataset(self):
         return self._dataset

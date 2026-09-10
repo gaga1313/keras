@@ -136,10 +136,8 @@ class TorchDataLoaderAdapter(DataAdapter):
         # We use numpy as an intermediary because it is faster.
         iterator = self.get_numpy_iterator()
         if super_batch:
-            import jax.numpy as jnp
-
             iterator = data_adapter_utils.super_batch_iterator(
-                iterator, super_batch, stack_fn=jnp.stack
+                iterator, super_batch, stack_fn=np.stack
             )
         return iterator
 

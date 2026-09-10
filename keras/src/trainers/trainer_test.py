@@ -2911,10 +2911,10 @@ class TestTrainer(testing.TestCase):
     def test_steps_per_execution_with_list_pytree(self):
         def generator():
             for _ in range(4):
-                yield (
+                yield [
                     np.ones((4, 4), dtype="float32"),
                     np.zeros((4, 1), dtype="float32"),
-                )
+                ]
 
         inputs = keras.Input(shape=(4,))
         outputs = keras.layers.Dense(1)(inputs)
