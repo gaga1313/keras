@@ -11,8 +11,8 @@ from absl.testing import parameterized
 from jax import numpy as jnp
 
 from keras.src import backend
-from keras.src import testing
 from keras.src.testing.test_utils import named_product
+from keras.src.trainers.data_adapters import data_adapter_test
 from keras.src.trainers.data_adapters import generator_data_adapter
 
 
@@ -31,7 +31,7 @@ def example_generator(x, y, sample_weight=None, batch_size=32):
     return make
 
 
-class GeneratorDataAdapterTest(testing.TestCase):
+class GeneratorDataAdapterTest(data_adapter_test.DataAdapterTest):
     @parameterized.named_parameters(
         named_product(
             [
@@ -238,3 +238,36 @@ class GeneratorDataAdapterTest(testing.TestCase):
             self.assertIsInstance(by, expected_class)
             self.assertEqual(bx.shape, (2, None, 2))
             self.assertEqual(by.shape, (2, None, 2))
+
+    @pytest.mark.skipif(backend.backend() != "jax", reason="JAX only")
+    def test_get_jax_iterator_with_super_batch(self):
+        def make_generator(num_batches):
+            def gen():
+                for _ in range(num_batches):
+                    yield (
+                        np.ones((16, 4), dtype="float32"),
+                        np.ones((16, 2), dtype="float32"),
+                    )
+
+            return gen
+
+        # Even batches: 4 batches with super_batch=2 -> 2 super-batches
+        adapter = generator_data_adapter.GeneratorDataAdapter(
+            make_generator(4)()
+        )
+        self.verify_super_batched_iterator(
+            adapter.get_jax_iterator(super_batch=2),
+            expected_super_batches=2,
+            has_partial_batch=False,
+        )
+
+        # Uneven batches: 5 batches with super_batch=2 -> 2 super-batches + 1
+        # partial batch list
+        adapter_uneven = generator_data_adapter.GeneratorDataAdapter(
+            make_generator(5)()
+        )
+        self.verify_super_batched_iterator(
+            adapter_uneven.get_jax_iterator(super_batch=2),
+            expected_super_batches=2,
+            has_partial_batch=True,
+        )
