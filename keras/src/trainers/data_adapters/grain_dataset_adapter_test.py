@@ -24,9 +24,11 @@ class Range2DSource(grain.sources.RandomAccessDataSource):
 
 
 class GrainDatasetAdapterTest(data_adapter_test.DataAdapterTest):
-    def _get_dataset(self, dataset_type, worker_count=0, num_threads=0):
-        x = np.random.normal(size=(34, 4)).astype("float32")
-        y = np.random.normal(size=(34, 2)).astype("float32")
+    def _get_dataset(
+        self, dataset_type, num_samples=34, worker_count=0, num_threads=0
+    ):
+        x = np.random.normal(size=(num_samples, 4)).astype("float32")
+        y = np.random.normal(size=(num_samples, 2)).astype("float32")
 
         class MySource(grain.sources.RandomAccessDataSource):
             def __init__(self, x, y):
@@ -216,23 +218,8 @@ class GrainDatasetAdapterTest(data_adapter_test.DataAdapterTest):
 
     @pytest.mark.skipif(backend.backend() != "jax", reason="JAX only")
     def test_get_jax_iterator_with_super_batch(self):
-        class MySource(grain.sources.RandomAccessDataSource):
-            def __init__(self, x, y):
-                self.x = x
-                self.y = y
-
-            def __getitem__(self, idx):
-                return self.x[idx], self.y[idx]
-
-            def __len__(self):
-                return len(self.x)
-
         # Even batches: 4 batches with super_batch=2 -> 2 super-batches
-        x_even = np.ones((64, 4), dtype="float32")
-        y_even = np.ones((64, 2), dtype="float32")
-        ds_even = grain.MapDataset.source(MySource(x_even, y_even)).batch(
-            batch_size=16
-        )
+        ds_even = self._get_dataset("map_dataset", num_samples=64)
         adapter_even = grain_dataset_adapter.GrainDatasetAdapter(ds_even)
         self.verify_super_batched_iterator(
             adapter_even.get_jax_iterator(super_batch=2),
@@ -242,11 +229,7 @@ class GrainDatasetAdapterTest(data_adapter_test.DataAdapterTest):
 
         # Uneven batches: 5 batches with super_batch=2 -> 2 super-batches + 1
         # partial batch list
-        x_uneven = np.ones((80, 4), dtype="float32")
-        y_uneven = np.ones((80, 2), dtype="float32")
-        ds_uneven = grain.MapDataset.source(MySource(x_uneven, y_uneven)).batch(
-            batch_size=16
-        )
+        ds_uneven = self._get_dataset("map_dataset", num_samples=80)
         adapter_uneven = grain_dataset_adapter.GrainDatasetAdapter(ds_uneven)
         self.verify_super_batched_iterator(
             adapter_uneven.get_jax_iterator(super_batch=2),

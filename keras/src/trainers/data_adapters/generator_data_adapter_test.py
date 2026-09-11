@@ -241,20 +241,9 @@ class GeneratorDataAdapterTest(data_adapter_test.DataAdapterTest):
 
     @pytest.mark.skipif(backend.backend() != "jax", reason="JAX only")
     def test_get_jax_iterator_with_super_batch(self):
-        def make_generator(num_batches):
-            def gen():
-                for _ in range(num_batches):
-                    yield (
-                        np.ones((16, 4), dtype="float32"),
-                        np.ones((16, 2), dtype="float32"),
-                    )
-
-            return gen
-
         # Even batches: 4 batches with super_batch=2 -> 2 super-batches
-        adapter = generator_data_adapter.GeneratorDataAdapter(
-            make_generator(4)()
-        )
+        gen_even = ((np.ones((16, 4)), np.ones((16, 2))) for _ in range(4))
+        adapter = generator_data_adapter.GeneratorDataAdapter(gen_even)
         self.verify_super_batched_iterator(
             adapter.get_jax_iterator(super_batch=2),
             expected_super_batches=2,
@@ -263,9 +252,8 @@ class GeneratorDataAdapterTest(data_adapter_test.DataAdapterTest):
 
         # Uneven batches: 5 batches with super_batch=2 -> 2 super-batches + 1
         # partial batch list
-        adapter_uneven = generator_data_adapter.GeneratorDataAdapter(
-            make_generator(5)()
-        )
+        gen_uneven = ((np.ones((16, 4)), np.ones((16, 2))) for _ in range(5))
+        adapter_uneven = generator_data_adapter.GeneratorDataAdapter(gen_uneven)
         self.verify_super_batched_iterator(
             adapter_uneven.get_jax_iterator(super_batch=2),
             expected_super_batches=2,
